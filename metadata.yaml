@@ -1,32 +1,43 @@
 name: astrbot_plugin_mocode
-desc: 🚀 Mocode - 基于 AstrBot 本地沙箱的代码执行插件，无需 Docker，即装即用！支持 Python 代码安全运行。
+desc: 🚀 Mocode - 基于 AstrBot 本地沙箱的多语言代码执行插件，支持 Python、JavaScript、Bash，无需 Docker，即装即用！
 help: |
   🚀 Mocode 代码运行器 (v1.0.0) - 基于 AstrBot 本地沙箱
 
-  💡 核心亮点：深度集成 AstrBot LocalPythonTool 沙箱，零配置，即装即用！
+  💡 核心亮点：深度集成 AstrBot 沙箱，支持 Python/JavaScript/Bash 三语言，零配置，即装即用！
 
   【使用格式】
   /code [语言] [输入(可选)]
   [代码]
 
-  【示例 1】Hello World
+  【示例 1】Python - Hello World
   /code py
   print("Hello, World!")
 
-  【示例 2】带输入
+  【示例 2】Python - 带输入
   /code py 你好，AstrBot！
   message = input()
   print(f"你说: {message}")
 
-  【示例 3】数学计算
+  【示例 3】Python - 数学计算
   /code py
   result = sum(range(101))
   print(f"1+2+...+100 = {result}")
 
+  【示例 4】JavaScript
+  /code js
+  const numbers = [1, 2, 3, 4, 5];
+  const sum = numbers.reduce((a, b) => a + b, 0);
+  console.log(`Sum: ${sum}`);
+
+  【示例 5】Bash
+  /code bash
+  echo "Hello from Bash!"
+  echo "当前时间: $(date)"
+
   【支持的语言】
-  ✅ Python (py/python)
-  ⏳ JavaScript (js) - 计划中
-  ⏳ Bash (sh) - 计划中
+  ✅ Python (py/python) - LocalPythonTool
+  ✅ JavaScript (js/javascript/node) - node 命令
+  ✅ Bash (sh/bash/shell) - bash 命令
 
   【安全特性】
   🔒 使用 AstrBot 原生沙箱执行

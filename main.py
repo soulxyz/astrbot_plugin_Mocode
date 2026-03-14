@@ -239,24 +239,28 @@ class MocodePlugin(Star):
         }
 
     async def _run_code(self, language: str, code: str, input_text: str = "") -> Dict:
-        """运行代码 - 本地执行（仅支持 Python）"""
-        if language not in ["python", "py"]:
-            return {"stdout": "", "stderr": "", "error": "当前仅支持 Python 语言（其他语言的在线 API 已不可用）"}
+        """运行代码 - 使用 AstrBot 本地沙箱"""
+        # 导入 AstrBot 的本地沙箱
+        from astrbot.core.computer.computer_client import get_local_booter
         
-        return await self._run_python_local(code, input_text)
+        # 获取本地沙箱启动器
+        booter = get_local_booter()
+        
+        # 根据语言选择执行方式
+        if language in ["python", "py"]:
+            return await self._run_python(booter, code, input_text)
+        elif language in ["javascript", "js", "node"]:
+            return await self._run_javascript(booter, code, input_text)
+        elif language in ["bash", "sh", "shell"]:
+            return await self._run_bash(booter, code, input_text)
+        else:
+            return {"stdout": "", "stderr": "", "error": f"不支持的语言: {language}。当前支持: Python, JavaScript, Bash"}
     
-    async def _run_python_local(self, code: str, input_text: str = "") -> Dict:
+    async def _run_python(self, booter, code: str, input_text: str = "") -> Dict:
         """使用 AstrBot 本地沙箱执行 Python 代码"""
         try:
-            # 导入 AstrBot 的本地沙箱
-            from astrbot.core.computer.computer_client import get_local_booter
-            
-            # 获取本地沙箱启动器
-            booter = get_local_booter()
-            
             # 如果提供了输入，修改代码以处理输入
             if input_text:
-                # 将输入嵌入到代码中
                 code = f'import sys\nfrom io import StringIO\nsys.stdin = StringIO("""{input_text}""")\n' + code
             
             # 执行代码
@@ -275,7 +279,75 @@ class MocodePlugin(Star):
             }
             
         except Exception as e:
-            logger.error(f"使用 AstrBot 沙箱执行代码时出错: {e}")
+            logger.error(f"执行 Python 代码时出错: {e}")
+            return {
+                "stdout": "",
+                "stderr": "",
+                "error": f"执行错误: {str(e)}"
+            }
+    
+    async def _run_javascript(self, booter, code: str, input_text: str = "") -> Dict:
+        """使用 AstrBot 本地沙箱执行 JavaScript 代码"""
+        try:
+            # 将输入写入临时文件
+            import tempfile
+            import os
+            
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+                if input_text:
+                    f.write(f'const input = "{input_text}";\n')
+                f.write(code)
+                temp_file = f.name
+            
+            # 使用 shell 执行 node
+            result = await booter.shell.exec(
+                f"node {temp_file}",
+                timeout=self.timeout_seconds
+            )
+            
+            # 清理临时文件
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+            
+            return {
+                "stdout": result.get("stdout", ""),
+                "stderr": result.get("stderr", ""),
+                "error": None
+            }
+            
+        except Exception as e:
+            logger.error(f"执行 JavaScript 代码时出错: {e}")
+            return {
+                "stdout": "",
+                "stderr": "",
+                "error": f"执行错误: {str(e)}"
+            }
+    
+    async def _run_bash(self, booter, code: str, input_text: str = "") -> Dict:
+        """使用 AstrBot 本地沙箱执行 Bash 代码"""
+        try:
+            # 构建命令
+            if input_text:
+                command = f'echo "{input_text}" | {code}'
+            else:
+                command = code
+            
+            # 执行命令
+            result = await booter.shell.exec(
+                command,
+                timeout=self.timeout_seconds
+            )
+            
+            return {
+                "stdout": result.get("stdout", ""),
+                "stderr": result.get("stderr", ""),
+                "error": None
+            }
+            
+        except Exception as e:
+            logger.error(f"执行 Bash 代码时出错: {e}")
             return {
                 "stdout": "",
                 "stderr": "",
