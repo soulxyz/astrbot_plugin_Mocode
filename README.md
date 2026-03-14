@@ -21,10 +21,18 @@
 - `admin_only`: 是否仅管理员使用（默认：false）
 - `timeout_seconds`: 代码执行超时时间（默认：30秒）
 
-**注意**：本插件使用本地沙箱执行 Python 代码，无需外部 API
+**注意**：本插件使用 Docker 沙箱执行 Python 代码
 - 仅支持 Python 语言
-- 有安全限制（禁止文件操作、网络请求等危险操作）
+- Docker 沙箱提供真正的隔离环境
 - 执行超时时间可配置
+
+**Docker 沙箱限制：**
+- 只读文件系统（--read-only）
+- 禁止网络访问（--network none）
+- 内存限制 128MB（--memory 128m）
+- CPU 限制 0.5 核（--cpus 0.5）
+- 进程数限制 50（--pids-limit 50）
+- 运行后自动删除容器（--rm）
 
 ## 使用
 

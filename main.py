@@ -246,116 +246,86 @@ class MocodePlugin(Star):
         return await self._run_python_local(code, input_text)
     
     async def _run_python_local(self, code: str, input_text: str = "") -> Dict:
-        """本地执行 Python 代码（简单沙箱）"""
-        import io
-        import signal
+        """使用 Docker 沙箱执行 Python 代码"""
+        import tempfile
+        import os
         
-        # 定义允许的内置函数
-        safe_builtins = {
-            'abs': abs, 'all': all, 'any': any, 'ascii': ascii,
-            'bin': bin, 'bool': bool, 'bytearray': bytearray, 'bytes': bytes,
-            'callable': callable, 'chr': chr, 'classmethod': classmethod,
-            'complex': complex, 'delattr': delattr, 'dict': dict, 'dir': dir,
-            'divmod': divmod, 'enumerate': enumerate, 'filter': filter,
-            'float': float, 'format': format, 'frozenset': frozenset,
-            'getattr': getattr, 'globals': globals, 'hasattr': hasattr,
-            'hash': hash, 'hex': hex, 'id': id, 'int': int,
-            'isinstance': isinstance, 'issubclass': issubclass, 'iter': iter,
-            'len': len, 'list': list, 'locals': locals, 'map': map,
-            'max': max, 'memoryview': memoryview, 'min': min, 'next': next,
-            'object': object, 'oct': oct, 'ord': ord, 'pow': pow,
-            'print': print, 'property': property, 'range': range,
-            'repr': repr, 'reversed': reversed, 'round': round, 'set': set,
-            'setattr': setattr, 'slice': slice, 'sorted': sorted,
-            'staticmethod': staticmethod, 'str': str, 'sum': sum,
-            'super': super, 'tuple': tuple, 'type': type, 'vars': vars,
-            'zip': zip, '__import__': lambda x: None  # 禁止导入
-        }
-        
-        # 创建受限的执行环境
-        safe_globals = {
-            '__builtins__': safe_builtins,
-            '__name__': '__main__',
-            '__doc__': None,
-            '__package__': None
-        }
-        
-        # 捕获输出
-        stdout_buffer = io.StringIO()
-        stderr_buffer = io.StringIO()
-        
-        # 重定向输入
-        if input_text:
-            stdin_buffer = io.StringIO(input_text)
-        else:
-            stdin_buffer = io.StringIO()
-        
-        # 保存原始的标准输入输出
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        old_stdin = sys.stdin
+        # 创建临时目录
+        temp_dir = tempfile.mkdtemp(prefix="mocode_")
         
         try:
-            # 设置超时
-            def timeout_handler(signum, frame):
-                raise TimeoutError("代码执行超时")
+            # 写入代码文件
+            code_file = os.path.join(temp_dir, "main.py")
+            with open(code_file, 'w') as f:
+                f.write(code)
             
-            # 注意：signal 在 Windows 上不支持，这里用简单方式
-            import threading
+            # 写入输入文件
+            input_file = os.path.join(temp_dir, "input.txt")
+            with open(input_file, 'w') as f:
+                f.write(input_text or "")
             
-            result_container = {}
+            # 构建 Docker 命令
+            # --rm: 运行后删除容器
+            # --read-only: 只读文件系统
+            # --network none: 禁止网络
+            # --memory 128m: 限制内存
+            # --cpus 0.5: 限制 CPU
+            # -v: 挂载临时目录
+            docker_cmd = [
+                "docker", "run", "--rm",
+                "--read-only",
+                "--network", "none",
+                "--memory", "128m",
+                "--memory-swap", "128m",
+                "--cpus", "0.5",
+                "--pids-limit", "50",
+                "-v", f"{temp_dir}:/code:ro",
+                "-w", "/code",
+                "python:3.12-slim",
+                "python", "-c",
+                f"import sys; sys.stdin = open('/code/input.txt'); exec(open('/code/main.py').read())"
+            ]
             
-            def execute_code():
-                try:
-                    # 重定向标准输入输出
-                    sys.stdout = stdout_buffer
-                    sys.stderr = stderr_buffer
-                    sys.stdin = stdin_buffer
-                    
-                    # 执行代码
-                    exec(code, safe_globals, {})
-                    
-                    result_container['success'] = True
-                except Exception as e:
-                    result_container['error'] = str(e)
-            
-            # 在子线程中执行
-            thread = threading.Thread(target=execute_code)
-            thread.daemon = True
-            thread.start()
-            thread.join(timeout=self.timeout_seconds)
-            
-            if thread.is_alive():
+            # 执行 Docker 命令
+            import subprocess
+            try:
+                result = subprocess.run(
+                    docker_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout_seconds
+                )
+                
                 return {
-                    "stdout": stdout_buffer.getvalue(),
-                    "stderr": "执行超时（超过 {} 秒）".format(self.timeout_seconds),
+                    "stdout": result.stdout,
+                    "stderr": result.stderr,
                     "error": None
                 }
-            
-            if 'error' in result_container:
+            except subprocess.TimeoutExpired:
                 return {
-                    "stdout": stdout_buffer.getvalue(),
-                    "stderr": result_container['error'],
+                    "stdout": "",
+                    "stderr": f"执行超时（超过 {self.timeout_seconds} 秒）",
                     "error": None
                 }
-            
-            return {
-                "stdout": stdout_buffer.getvalue(),
-                "stderr": stderr_buffer.getvalue(),
-                "error": None
-            }
-            
-        except Exception as e:
-            return {
-                "stdout": stdout_buffer.getvalue(),
-                "stderr": stderr_buffer.getvalue() + "\n" + str(e),
-                "error": None
-            }
+            except FileNotFoundError:
+                return {
+                    "stdout": "",
+                    "stderr": "",
+                    "error": "Docker 未安装或不可用"
+                }
+            except Exception as e:
+                return {
+                    "stdout": "",
+                    "stderr": "",
+                    "error": f"Docker 执行错误: {str(e)}"
+                }
         finally:
-            # 恢复原始的标准输入输出
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-            sys.stdin = old_stdin
+            # 清理临时目录
+            import shutil
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass
 
     def _build_result_message(self, result: Dict) -> str:
         """构建结果消息"""
