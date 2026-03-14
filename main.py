@@ -246,26 +246,22 @@ class MocodePlugin(Star):
         return await self._run_python_local(code, input_text)
     
     async def _run_python_local(self, code: str, input_text: str = "") -> Dict:
-        """执行 Python 代码 - 优先使用 Docker 沙箱，不可用时回退到本地执行"""
-        # 首先尝试 Docker 沙箱
-        docker_result = await self._run_docker_sandbox(code, input_text)
-        if docker_result.get("error") != "Docker 未安装或不可用":
-            return docker_result
-        
-        # Docker 不可用，回退到本地执行
-        return await self._run_local_sandbox(code, input_text)
-    
-    async def _run_docker_sandbox(self, code: str, input_text: str = "") -> Dict:
         """使用 Docker 沙箱执行 Python 代码"""
         import tempfile
         import os
         import subprocess
         
-        # 检查 Docker 是否可用
-        try:
-            subprocess.run(["docker", "version"], capture_output=True, timeout=5)
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            return {"stdout": "", "stderr": "", "error": "Docker 未安装或不可用"}
+        # 检查 Docker 是否可用，不可用则尝试安装
+        docker_available = await self._check_and_install_docker()
+        if not docker_available:
+            return {
+                "stdout": "", 
+                "stderr": "", 
+                "error": "Docker 未安装且自动安装失败。请手动安装 Docker: https://docs.docker.com/get-docker/"
+            }
+        
+        # 确保 Python 镜像存在
+        await self._ensure_python_image()
         
         # 创建临时目录
         temp_dir = tempfile.mkdtemp(prefix="mocode_")
@@ -330,100 +326,96 @@ class MocodePlugin(Star):
             except:
                 pass
     
-    async def _run_local_sandbox(self, code: str, input_text: str = "") -> Dict:
-        """本地沙箱执行（Docker 不可用时回退）"""
-        import io
-        import threading
+    async def _check_and_install_docker(self) -> bool:
+        """检查 Docker 是否可用，不可用则尝试安装"""
+        import subprocess
         
-        # 定义允许的内置函数
-        safe_builtins = {
-            'abs': abs, 'all': all, 'any': any, 'ascii': ascii,
-            'bin': bin, 'bool': bool, 'bytearray': bytearray, 'bytes': bytes,
-            'callable': callable, 'chr': chr, 'classmethod': classmethod,
-            'complex': complex, 'delattr': delattr, 'dict': dict, 'dir': dir,
-            'divmod': divmod, 'enumerate': enumerate, 'filter': filter,
-            'float': float, 'format': format, 'frozenset': frozenset,
-            'getattr': getattr, 'globals': globals, 'hasattr': hasattr,
-            'hash': hash, 'hex': hex, 'id': id, 'int': int,
-            'isinstance': isinstance, 'issubclass': issubclass, 'iter': iter,
-            'len': len, 'list': list, 'locals': locals, 'map': map,
-            'max': max, 'memoryview': memoryview, 'min': min, 'next': next,
-            'object': object, 'oct': oct, 'ord': ord, 'pow': pow,
-            'print': print, 'property': property, 'range': range,
-            'repr': repr, 'reversed': reversed, 'round': round, 'set': set,
-            'setattr': setattr, 'slice': slice, 'sorted': sorted,
-            'staticmethod': staticmethod, 'str': str, 'sum': sum,
-            'super': super, 'tuple': tuple, 'type': type, 'vars': vars,
-            'zip': zip, '__import__': lambda x: None
-        }
+        # 检查 Docker 是否已安装
+        try:
+            result = subprocess.run(
+                ["docker", "version"], 
+                capture_output=True, 
+                timeout=5
+            )
+            if result.returncode == 0:
+                return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
         
-        safe_globals = {
-            '__builtins__': safe_builtins,
-            '__name__': '__main__',
-            '__doc__': None,
-            '__package__': None
-        }
-        
-        stdout_buffer = io.StringIO()
-        stderr_buffer = io.StringIO()
-        
-        if input_text:
-            stdin_buffer = io.StringIO(input_text)
-        else:
-            stdin_buffer = io.StringIO()
-        
-        old_stdout = sys.stdout
-        old_stderr = sys.stderr
-        old_stdin = sys.stdin
-        
-        result_container = {}
-        
-        def execute_code():
-            try:
-                sys.stdout = stdout_buffer
-                sys.stderr = stderr_buffer
-                sys.stdin = stdin_buffer
-                exec(code, safe_globals, {})
-                result_container['success'] = True
-            except Exception as e:
-                result_container['error'] = str(e)
+        # Docker 未安装，尝试自动安装
+        logger.info("Docker 未安装，尝试自动安装...")
         
         try:
-            thread = threading.Thread(target=execute_code)
-            thread.daemon = True
-            thread.start()
-            thread.join(timeout=self.timeout_seconds)
+            # 检测操作系统
+            import platform
+            system = platform.system().lower()
             
-            if thread.is_alive():
-                return {
-                    "stdout": stdout_buffer.getvalue(),
-                    "stderr": "执行超时（超过 {} 秒）".format(self.timeout_seconds),
-                    "error": None
-                }
-            
-            if 'error' in result_container:
-                return {
-                    "stdout": stdout_buffer.getvalue(),
-                    "stderr": result_container['error'],
-                    "error": None
-                }
-            
-            return {
-                "stdout": stdout_buffer.getvalue(),
-                "stderr": stderr_buffer.getvalue(),
-                "error": None
-            }
-            
+            if "linux" in system:
+                # Linux 系统使用官方安装脚本
+                install_cmd = [
+                    "sh", "-c",
+                    "curl -fsSL https://get.docker.com | sh"
+                ]
+                
+                result = subprocess.run(
+                    install_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=120
+                )
+                
+                if result.returncode == 0:
+                    logger.info("Docker 安装成功")
+                    # 启动 Docker 服务
+                    subprocess.run(
+                        ["systemctl", "start", "docker"],
+                        capture_output=True,
+                        timeout=10
+                    )
+                    return True
+                else:
+                    logger.error(f"Docker 安装失败: {result.stderr}")
+                    return False
+            else:
+                logger.error(f"不支持自动安装 Docker 的操作系统: {system}")
+                return False
+                
         except Exception as e:
-            return {
-                "stdout": stdout_buffer.getvalue(),
-                "stderr": stderr_buffer.getvalue() + "\n" + str(e),
-                "error": None
-            }
-        finally:
-            sys.stdout = old_stdout
-            sys.stderr = old_stderr
-            sys.stdin = old_stdin
+            logger.error(f"Docker 安装过程出错: {e}")
+            return False
+    
+    async def _ensure_python_image(self):
+        """确保 Python Docker 镜像存在"""
+        import subprocess
+        
+        try:
+            # 检查镜像是否存在
+            result = subprocess.run(
+                ["docker", "images", "-q", "python:3.12-slim"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.stdout.strip():
+                return  # 镜像已存在
+            
+            # 拉取镜像
+            logger.info("拉取 Python Docker 镜像...")
+            result = subprocess.run(
+                ["docker", "pull", "python:3.12-slim"],
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+            
+            if result.returncode == 0:
+                logger.info("Python 镜像拉取成功")
+            else:
+                logger.error(f"Python 镜像拉取失败: {result.stderr}")
+                
+        except Exception as e:
+            logger.error(f"检查/拉取镜像时出错: {e}")
 
     def _build_result_message(self, result: Dict) -> str:
         """构建结果消息"""
