@@ -1,7 +1,8 @@
 """
-Mocode - AstrBot 在线运行代码插件
-支持多种编程语言，运行于 glot.io
-版本: 1.0.0
+Mocode 代码运行插件
+AstrBot 在线运行代码插件
+
+版本: 1.0
 """
 
 import asyncio

@@ -1,7 +1,7 @@
 name: astrbot_plugin_mocode
 desc: 🚀 Mocode - 基于 AstrBot 本地沙箱的多语言代码执行插件，支持 Python、JavaScript、Bash，无需 Docker，即装即用！
 help: |
-  🚀 Mocode 代码运行器 (v1.0.0) - 基于 AstrBot 本地沙箱
+  🚀 Mocode 代码运行器 (v1.0) - 基于 AstrBot 本地沙箱
 
   💡 核心亮点：深度集成 AstrBot 沙箱，支持 Python/JavaScript/Bash 三语言，零配置，即装即用！
 
@@ -51,6 +51,6 @@ help: |
   - timeout_seconds: 执行超时时间（默认 30 秒）
 
   📖 详细文档：https://github.com/NumInvis/astrbot_plugin_Mocode
-version: "1.0.0"
+version: "1.0"
 author: NumInvis
 repo: https://github.com/NumInvis/astrbot_plugin_Mocode
