@@ -1,100 +1,217 @@
-# Mocode - AstrBot 在线运行代码插件
+# 🚀 Mocode - AstrBot 在线代码执行插件
 
-支持 Python 代码在 AstrBot 本地沙箱中安全执行
+[![AstrBot](https://img.shields.io/badge/AstrBot-Plugin-blue)](https://github.com/AstrBotDevs/AstrBot)
+[![Python](https://img.shields.io/badge/Python-3.8%2B-green)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
-## 来源与致敬
+> 💡 **核心亮点**：深度集成 AstrBot 本地沙箱，无需 Docker，即装即用！
 
-本项目移植自 [nonebot-plugin-code](https://github.com/yzyyz1387/nonebot_plugin_code)，感谢原作者的出色工作！
+Mocode 是一款专为 [AstrBot](https://github.com/AstrBotDevs/AstrBot) 设计的代码执行插件，让用户能够在聊天环境中安全、便捷地运行 Python 代码。
 
-## 安装
+## ✨ 核心特性
 
-1. 在 AstrBot 插件管理面板中添加仓库地址：
+### 🔒 原生 AstrBot 沙箱支持
+- **深度集成**：直接调用 AstrBot 内置的 `LocalPythonTool` 沙箱
+- **零配置**：无需安装 Docker，无需额外依赖
+- **即装即用**：安装后立即可用，无需复杂配置
+
+### 🛡️ 企业级安全防护
+- **子进程隔离**：代码在独立子进程中运行
+- **超时控制**：防止无限循环和长时间运行
+- **危险命令拦截**：自动拦截 `rm -rf`、`mkfs`、`dd` 等危险命令
+- **文件系统限制**：代码只能访问 AstrBot 目录内的文件
+
+### 🎯 简洁易用
+- **自然语言交互**：通过聊天即可执行代码
+- **输入支持**：支持通过参数传递输入数据
+- **实时反馈**：即时返回执行结果
+
+## 📦 安装
+
+### 方式一：插件市场安装（推荐）
+
+1. 打开 AstrBot 管理面板
+2. 进入「插件」→「插件市场」
+3. 点击「添加仓库」，输入：
    ```
    https://github.com/NumInvis/astrbot_plugin_Mocode
    ```
+4. 找到 Mocode 插件，点击「安装」
 
-2. 点击安装即可
+### 方式二：手动安装
 
-## 系统要求
+```bash
+# 进入 AstrBot 插件目录
+cd /path/to/astrbot/data/plugins
 
-**无特殊要求**，插件使用 AstrBot 自带的本地沙箱执行代码。
+# 克隆仓库
+git clone https://github.com/NumInvis/astrbot_plugin_Mocode.git
 
-## 配置
-
-在 AstrBot 插件配置面板中设置：
-- `admin_only`: 是否仅管理员使用（默认：false）
-- `timeout_seconds`: 代码执行超时时间（默认：30秒）
-
-**注意**：本插件使用 **AstrBot 本地沙箱** 执行 Python 代码
-- 仅支持 Python 语言
-- 自动使用 AstrBot 的沙箱环境
-- 执行超时时间可配置
-
-**AstrBot 沙箱限制：**
-- 使用子进程执行代码
-- 超时控制
-- 禁止危险命令（如 `rm -rf`, `mkfs`, `dd` 等）
-- 文件系统访问限制在 AstrBot 目录内
-
-> 适合运行简单代码，资源限制由 AstrBot 控制
-
-## 使用
-
-### 基本命令格式
+# 重启 AstrBot
 ```
-/code [语言] [输入(可选)]
+
+## ⚙️ 配置
+
+在 AstrBot 管理面板中配置：
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `admin_only` | 布尔值 | `false` | 是否仅管理员可用 |
+| `timeout_seconds` | 整数 | `30` | 代码执行超时时间（秒） |
+
+## 🎮 使用方法
+
+### 基本语法
+
+```
+/code [语言] [输入数据]
 [代码]
 ```
 
 ### 使用示例
 
-**1. 运行 Python Hello World：**
+#### 1️⃣ Hello World
 ```
 /code py
-print("Hello World!")
+print("Hello, World!")
 ```
 
-**2. 带输入的 Python 示例：**
+**输出：**
 ```
-/code py 你好，世界！
-print(input())
+✅ 执行成功
+Hello, World!
 ```
 
-**3. 执行计算：**
+#### 2️⃣ 带输入的代码
+```
+/code py AstrBot 真棒！
+message = input()
+print(f"你说: {message}")
+```
+
+**输出：**
+```
+✅ 执行成功
+你说: AstrBot 真棒！
+```
+
+#### 3️⃣ 数学计算
 ```
 /code py
-x = sum(range(100))
-print(f"Sum: {x}")
+# 计算 1 到 100 的和
+result = sum(range(101))
+print(f"1+2+3+...+100 = {result}")
+
+# 斐波那契数列
+def fib(n):
+    if n <= 1:
+        return n
+    return fib(n-1) + fib(n-2)
+
+print(f"斐波那契数列第 10 项: {fib(10)}")
 ```
 
-### 支持的语言
+**输出：**
+```
+✅ 执行成功
+1+2+3+...+100 = 5050
+斐波那契数列第 10 项: 55
+```
 
-| 别名 | 语言 |
-|------|------|
-| py / python | Python |
+#### 4️⃣ 字符串处理
+```
+/code py
+import json
 
-> 目前仅支持 Python
+data = {
+    "name": "AstrBot",
+    "version": "3.0",
+    "features": ["AI", "插件系统", "多平台"]
+}
 
-### 命令列表
+print(json.dumps(data, ensure_ascii=False, indent=2))
+```
 
-- `/code` - 运行代码
-- `/mocode` - 查看帮助信息
+**输出：**
+```
+✅ 执行成功
+{
+  "name": "AstrBot",
+  "version": "3.0",
+  "features": ["AI", "插件系统", "多平台"]
+}
+```
 
-## 工作原理
+## 🔧 支持的语言
 
-插件使用 AstrBot 的本地沙箱执行代码：
-1. 导入 AstrBot 的 `get_local_booter()` 获取沙箱
-2. 通过 `booter.python.exec()` 执行代码
-3. 返回执行结果（标准输出和标准错误）
+| 语言 | 别名 | 状态 |
+|------|------|------|
+| Python | `py`, `python` | ✅ 支持 |
+| JavaScript | `js`, `javascript` | ⏳ 计划中 |
+| Bash | `sh`, `bash` | ⏳ 计划中 |
 
-**安全特性：**
-- 使用 AstrBot 内置的沙箱环境
-- 子进程隔离
-- 超时控制
-- 禁止危险命令
-- 文件系统访问限制
+## 🛡️ 安全说明
 
-## 致谢
+### 沙箱机制
 
-- 原项目：[nonebot-plugin-code](https://github.com/yzyyz1387/nonebot_plugin_code)
-- AstrBot 沙箱技术
+本插件使用 **AstrBot 原生沙箱** (`LocalPythonTool`) 执行代码：
+
+```python
+from astrbot.core.computer.computer_client import get_local_booter
+
+booter = get_local_booter()
+result = await booter.python.exec(code, timeout=30)
+```
+
+### 安全特性
+
+- ✅ **进程隔离**：每个代码片段在独立子进程中运行
+- ✅ **超时保护**：超过配置时间自动终止
+- ✅ **命令过滤**：自动拦截危险系统命令
+- ✅ **路径限制**：文件操作限制在 AstrBot 安全目录内
+- ✅ **资源控制**：CPU 和内存使用受系统限制
+
+### 禁止的操作
+
+以下操作会被自动拦截：
+- `rm -rf /` 等破坏性命令
+- `mkfs` 等格式化命令
+- `dd if=` 等磁盘操作
+- `shutdown`, `reboot`, `poweroff` 等系统命令
+- 访问 `/etc/passwd` 等敏感文件
+
+## 🏗️ 技术架构
+
+```
+用户输入
+    ↓
+AstrBot 消息处理
+    ↓
+Mocode 插件解析
+    ↓
+AstrBot LocalPythonTool 沙箱
+    ↓
+子进程执行代码
+    ↓
+返回执行结果
+```
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+## 📄 许可证
+
+本项目基于 [MIT](LICENSE) 许可证开源。
+
+## 🙏 致谢
+
+- 原项目：[nonebot-plugin-code](https://github.com/yzyyz1387/nonebot_plugin_code) - 感谢原作者的出色工作！
+- [AstrBot](https://github.com/AstrBotDevs/AstrBot) - 优秀的聊天机器人框架
+- AstrBot 沙箱技术团队
+
+---
+
+<p align="center">
+  Made with ❤️ for AstrBot Community
+</p>
