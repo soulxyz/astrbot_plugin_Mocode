@@ -1,5 +1,5 @@
 name: astrbot_plugin_mocode
-desc: 🚀 Mocode - 基于 AstrBot 本地沙箱的多语言代码执行插件，支持 Python、JavaScript、Bash，无需 Docker，即装即用！
+desc: 🚀 Mocode - 基于 AstrBot 本地沙箱的多语言代码执行插件
 help: |
   🚀 Mocode 代码运行器 (v1.0) - 基于 AstrBot 本地沙箱
 
