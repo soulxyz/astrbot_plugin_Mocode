@@ -238,48 +238,92 @@ class MocodePlugin(Star):
         }
 
     async def _run_code(self, language: str, code: str, input_text: str = "") -> Dict:
-        """运行代码"""
+        """运行代码 - 使用 Piston API"""
         if not self._session:
             return {"error": "HTTP 会话未初始化"}
 
-        file_ext = FILE_EXTENSIONS.get(language, "txt")
-        filename = f"main.{file_ext}"
+        # Piston API 语言版本映射
+        PISTON_VERSIONS = {
+            "python": "3.10.0",
+            "javascript": "18.15.0",
+            "typescript": "5.0.3",
+            "java": "15.0.2",
+            "c": "10.2.0",
+            "cpp": "10.2.0",
+            "go": "1.16.2",
+            "rust": "1.68.2",
+            "ruby": "3.0.1",
+            "php": "8.2.3",
+            "bash": "5.1.0",
+            "lua": "5.4.4",
+            "perl": "5.36.0",
+            "csharp": "6.12.0",
+            "fsharp": "5.0.0",
+            "vb.net": "16.8.0",
+            "r": "4.1.1",
+            "scala": "3.2.2",
+            "swift": "5.3.3",
+            "kotlin": "1.8.20",
+            "clojure": "1.10.3",
+            "haskell": "9.0.1",
+            "erlang": "23.0.0",
+            "elixir": "1.11.3",
+            "ocaml": "4.14.0",
+            "julia": "1.8.5",
+            "nim": "1.6.0",
+            "crystal": "1.8.1",
+            "d": "2.103.0"
+        }
+
+        version = PISTON_VERSIONS.get(language, "latest")
 
         payload = {
+            "language": language,
+            "version": version,
             "files": [
                 {
-                    "name": filename,
                     "content": code
                 }
             ],
-            "stdin": input_text
+            "stdin": input_text,
+            "args": [],
+            "compile_timeout": 10000,
+            "run_timeout": self.timeout_seconds * 1000
         }
 
-        headers = {}
-        if self.glot_access_token:
-            headers["Authorization"] = f"Token {self.glot_access_token}"
-
         try:
-            url = f"{self.glot_api_url}/run/{language}/latest"
+            url = "https://emkc.org/api/v2/piston/execute"
             
             async with self._session.post(
                 url,
                 json=payload,
-                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=self.timeout_seconds)
             ) as response:
                 result = await response.json()
                 
                 if response.status == 200:
+                    # Piston API 返回格式不同
+                    run_result = result.get("run", {})
+                    compile_result = result.get("compile", {})
+                    
+                    stdout = run_result.get("stdout", "")
+                    stderr = run_result.get("stderr", "")
+                    
+                    # 如果有编译错误，也加上
+                    if compile_result and compile_result.get("stderr"):
+                        stderr = compile_result.get("stderr") + "\n" + stderr
+                    
+                    # 检查是否有运行错误
+                    if run_result.get("code") != 0 and not stdout and not stderr:
+                        stderr = run_result.get("output", "程序异常退出")
+                    
                     return {
-                        "stdout": result.get("stdout", ""),
-                        "stderr": result.get("stderr", ""),
+                        "stdout": stdout,
+                        "stderr": stderr,
                         "error": None
                     }
                 else:
                     error_msg = result.get("message", f"请求失败: {response.status}")
-                    if "access token" in error_msg.lower():
-                        error_msg += "\n\n💡 提示: 请在配置中设置 glot_access_token 或从 https://glot.io 获取"
                     return {
                         "stdout": "",
                         "stderr": "",

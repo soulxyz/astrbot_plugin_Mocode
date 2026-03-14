@@ -1,6 +1,6 @@
 # Mocode - AstrBot 在线运行代码插件
 
-支持多种编程语言，运行于 [glot.io](https://glot.io/)
+支持多种编程语言，运行于 [Piston API](https://piston.readthedocs.io/)
 
 ## 来源与致敬
 
@@ -18,10 +18,10 @@
 ## 配置
 
 在 AstrBot 插件配置面板中设置：
-- `glot_api_url`: Glot API 地址（默认：https://glot.io/api）
-- `glot_access_token`: Glot 访问令牌（从 [glot.io](https://glot.io/) 获取）
 - `admin_only`: 是否仅管理员使用（默认：false）
 - `timeout_seconds`: 代码执行超时时间（默认：30秒）
+
+**注意**：本插件使用 Piston 公共 API (https://emkc.org/api/v2/piston)，无需配置 API Token
 
 ## 使用
 
@@ -66,7 +66,7 @@ Elixir(ex), OCaml(ml), Julia, Nim, Crystal, D
 ## 致谢
 
 - 原项目：[nonebot-plugin-code](https://github.com/yzyyz1387/nonebot_plugin_code)
-- API 服务：[glot.io](https://glot.io/)
+- API 服务：[Piston](https://piston.readthedocs.io/)
 
 ## License
 
